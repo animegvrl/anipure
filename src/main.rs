@@ -91,9 +91,9 @@ fn launch_or_enter(listing_entries: &mut Vec<ListingEntry>)
             selected_entry.le_path.to_string()
         }
     );
-    std::process::Command::new(if cfg!(target_os = "windows") { "cmd" } else { "sh" })
-                          .arg(if cfg!(target_os = "windows") { "/C"  } else { "-c" })
-                          .arg(format!("mpv \"{}\"", spawn_url))
+
+    std::process::Command::new("mpv")
+                          .arg(spawn_url)
                           .stderr(std::process::Stdio::null())
                           .stdout(std::process::Stdio::null())
                           .stdin(std::process::Stdio::null())
