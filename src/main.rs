@@ -52,7 +52,7 @@ struct ListingEntry
 fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
 {
     let body = reqwest::blocking::get(format!("{}/anime/?raw=true", BASE_URL))?.text()?;
-    let mut listing_entries = parse_body(body);
+    let mut listing_entries = parse_body(&body);
     list_entries(&listing_entries);
 
     while let Ok(event) = read()
@@ -166,9 +166,9 @@ fn stupid_url_fix(url: &String) -> String
        .to_string()
 }
 
-fn parse_body(xml: String) -> Vec<ListingEntry>
+fn parse_body(xml: &str) -> Vec<ListingEntry>
 {
-    let mut reader = Reader::from_str(&xml);
+    let mut reader = Reader::from_str(xml);
     reader.config_mut().trim_text(true);
 
     let mut buf = Vec::new();
