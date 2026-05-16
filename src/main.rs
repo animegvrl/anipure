@@ -25,20 +25,27 @@ use crossterm::{
     }
 };
 
-const BASE_URL: &str = "http://192.168.9.1";
+const BASE_URL_1: &str = "http://192.168.1.3";
+const BASE_URL_9: &str = "http://192.168.9.1";
 
-fn main() -> Result<(), Box<dyn std::error::Error>>
+#[derive(Debug)]
+struct Router
 {
-    enable_raw_mode()?;
-    execute!(io::stdout(), EnterAlternateScreen, Hide)?;
-    if let Err(e) = handle_navigation()
-    {
-        println!("Error: {e:?}\r");
-    }
-    execute!(io::stdout(), LeaveAlternateScreen, Show)?;
-    disable_raw_mode()?;
+    base: String,
+    path: String,
+}
 
-    Ok(())
+impl Router
+{
+    fn build_url(&self) -> String
+    {
+        format!(
+            "{}/{}{}?raw=true",
+            &self.base,
+            &self.path,
+            if &self.path == "" { "" } else { "/" },
+        )
+    }
 }
 
 #[derive(Debug)]
@@ -49,10 +56,39 @@ struct ListingEntry
     le_selected: bool,
 }
 
+fn main() -> Result<(), Box<dyn std::error::Error>>
+{
+    enable_raw_mode()?;
+    execute!(io::stdout(), EnterAlternateScreen, Hide)?;
+
+    let mut error = None;
+    if let Err(e) = handle_navigation()
+    {
+        error = Some(e);
+    }
+
+    execute!(io::stdout(), LeaveAlternateScreen, Show)?;
+    disable_raw_mode()?;
+
+    if let Some(e) = error
+    {
+        println!("Error: {e:?}\r");
+    }
+
+    Ok(())
+}
+
 fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
 {
-    let body = reqwest::blocking::get(format!("{}/anime/?raw=true", BASE_URL))?.text()?;
+    let mut router = Router
+    {
+        base: String::from(BASE_URL_9),
+        path: String::from("anime"),
+    };
+
+    let body = reqwest::blocking::get(router.build_url())?.text()?;
     let mut listing_entries = parse_body(&body);
+
     list_entries(&listing_entries);
 
     while let Ok(event) = read()
@@ -73,9 +109,41 @@ fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
                                                     .find(|entry| entry.le_selected)
                                                     .unwrap();
 
-                launch_or_enter(&selected_entry);
+                launch_or_enter(&selected_entry, &router);
                 break;
             },
+            KeyCode::Char('s') =>
+            {
+                router.path = String::from("series");
+                let body = reqwest::blocking::get(router.build_url())?.text()?;
+                listing_entries = parse_body(&body);
+            }
+            KeyCode::Char('m') =>
+            {
+                router.path = String::from("movies");
+                let body = reqwest::blocking::get(router.build_url())?.text()?;
+                listing_entries = parse_body(&body);
+            }
+            KeyCode::Char('a') =>
+            {
+                router.path = String::from("anime");
+                let body = reqwest::blocking::get(router.build_url())?.text()?;
+                listing_entries = parse_body(&body);
+            }
+            KeyCode::Char('1') =>
+            {
+                router.path = String::from("");
+                router.base = String::from(BASE_URL_1);
+                let body = reqwest::blocking::get(router.build_url())?.text()?;
+                listing_entries = parse_body(&body);
+            }
+            KeyCode::Char('9') =>
+            {
+                router.path = String::from("anime");
+                router.base = String::from(BASE_URL_9);
+                let body = reqwest::blocking::get(router.build_url())?.text()?;
+                listing_entries = parse_body(&body);
+            }
             _ => {}
         }
 
@@ -84,11 +152,11 @@ fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
-fn launch_or_enter(listing_entry: &ListingEntry)
+fn launch_or_enter(listing_entry: &ListingEntry, router: &Router)
 {
     let spawn_url = format!(
         "{}{}",
-        BASE_URL,
+        &router.base,
         if listing_entry.le_type == "directory"
         {
             listing_entry.le_path.replace("?raw=true", "play.m3u8")
@@ -185,7 +253,15 @@ fn parse_body(xml: &str) -> Vec<ListingEntry>
     {
         match reader.read_event_into(&mut buf)
         {
-            Err(e) => panic!("Error at position {}: {:?}", reader.error_position(), e),
+            Err(_) => return vec![ListingEntry
+            {
+                le_type: String::from("error"),
+                le_path: String::from("Nothing here."),
+                le_selected: true,
+            }],
+            // Err(e) => return Err(
+            //     format!("Error at position {}: {:?}", reader.error_position(), e)
+            // ),
 
             Ok(Event::Eof) => break,
             Ok(Event::Start(e)) =>
