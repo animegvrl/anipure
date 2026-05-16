@@ -67,7 +67,15 @@ fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
             KeyCode::Esc | KeyCode::Char('q') => { break; }
             KeyCode::Up => { select_entry(false, &mut listing_entries); }
             KeyCode::Down => { select_entry(true, &mut listing_entries); }
-            KeyCode::Enter => { launch_or_enter(&mut listing_entries); break; },
+            KeyCode::Enter =>
+            {
+                let selected_entry = listing_entries.iter_mut()
+                                                    .find(|entry| entry.le_selected)
+                                                    .unwrap();
+
+                launch_or_enter(&selected_entry);
+                break;
+            },
             _ => {}
         }
 
@@ -76,19 +84,18 @@ fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
-fn launch_or_enter(listing_entries: &mut Vec<ListingEntry>)
+fn launch_or_enter(listing_entry: &ListingEntry)
 {
-    let selected_entry = listing_entries.iter_mut().find(|entry| entry.le_selected).unwrap();
     let spawn_url = format!(
         "{}{}",
         BASE_URL,
-        if selected_entry.le_type == "directory"
+        if listing_entry.le_type == "directory"
         {
-            selected_entry.le_path.replace("?raw=true", "play.m3u8")
+            listing_entry.le_path.replace("?raw=true", "play.m3u8")
         }
         else
         {
-            selected_entry.le_path.to_string()
+            listing_entry.le_path.to_string()
         }
     );
 
