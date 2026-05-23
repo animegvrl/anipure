@@ -39,9 +39,9 @@ impl Router
 #[derive(Debug)]
 struct ListingEntry
 {
-    le_type: String,
-    le_path: String,
-    le_selected: bool,
+    kind: String,
+    path: String,
+    selected: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>>
@@ -90,7 +90,7 @@ fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
             KeyCode::Enter =>
             {
                 let selected_entry = listing_entries.iter_mut()
-                                                    .find(|entry| entry.le_selected)
+                                                    .find(|entry| entry.selected)
                                                     .unwrap();
 
                 launch_or_enter(&selected_entry, &router);
@@ -141,13 +141,13 @@ fn launch_or_enter(listing_entry: &ListingEntry, router: &Router)
     let spawn_url = format!(
         "http://{}{}",
         &router.base,
-        if listing_entry.le_type == "directory"
+        if listing_entry.kind == "directory"
         {
-            listing_entry.le_path.replace("?raw=true", "play.m3u8")
+            listing_entry.path.replace("?raw=true", "play.m3u8")
         }
         else
         {
-            listing_entry.le_path.to_string()
+            listing_entry.path.to_string()
         }
     );
 
@@ -162,8 +162,8 @@ fn launch_or_enter(listing_entry: &ListingEntry, router: &Router)
 
 fn select_entry(next: bool, listing_entries: &mut Vec<ListingEntry>)
 {
-    let selected_idx = listing_entries.iter().position(|entry| entry.le_selected).unwrap();
-    listing_entries[selected_idx].le_selected = false;
+    let selected_idx = listing_entries.iter().position(|entry| entry.selected).unwrap();
+    listing_entries[selected_idx].selected = false;
 
     let le_len = listing_entries.len();
 
@@ -172,7 +172,7 @@ fn select_entry(next: bool, listing_entries: &mut Vec<ListingEntry>)
         else if next            { selected_idx  + 1 }
         else if                   selected_idx == 0 { le_len - 1 }
         else                    { selected_idx  - 1 }
-    ].le_selected = true;
+    ].selected = true;
 }
 
 fn list_entries(listing_entries: &Vec<ListingEntry>)
@@ -189,20 +189,20 @@ fn list_entries(listing_entries: &Vec<ListingEntry>)
             io::stdout(),
             MoveTo(0, n as u16),
             Clear(ClearType::CurrentLine),
-            if listing_entries[n].le_selected { SetBackgroundColor(Color::Magenta) }
+            if listing_entries[n].selected { SetBackgroundColor(Color::Magenta) }
             else { SetBackgroundColor(Color::Reset) },
         ).unwrap();
 
         println!("{}{} {}",
-            if listing_entries[n].le_selected { "> " } else { "" },
-            match listing_entries[n].le_type.as_str() {
+            if listing_entries[n].selected { "> " } else { "" },
+            match listing_entries[n].kind.as_str() {
                 "directory" => "D ",
                 "root" => "..",
                 "file" => "F ",
                 _ => "?"
             },
-            // listing_entries[n].le_path
-            stupid_url_fix(&listing_entries[n].le_path)
+            // listing_entries[n].path
+            stupid_url_fix(&listing_entries[n].path)
         );
 
         execute!(
@@ -247,9 +247,9 @@ fn parse_body(body: &str) -> Vec<ListingEntry>
                     {
                         listing_entries.push(ListingEntry
                         {
-                            le_type: class.unwrap().to_string(),
-                            le_path: href.unwrap().to_string(),
-                            le_selected: if listing_entries.len() == 0 { true } else { false },
+                            kind: class.unwrap().to_string(),
+                            path: href.unwrap().to_string(),
+                            selected: if listing_entries.len() == 0 { true } else { false },
                         });
                     }
                 }
@@ -263,9 +263,9 @@ fn parse_body(body: &str) -> Vec<ListingEntry>
     {
         listing_entries.push(ListingEntry
         {
-            le_type: String::from("error"),
-            le_path: String::from("Nothing here."),
-            le_selected: true,
+            kind: String::from("error"),
+            path: String::from("Nothing here."),
+            selected: true,
         });
     }
 
