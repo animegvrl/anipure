@@ -229,12 +229,12 @@ fn parse_body(body: &str) -> Vec<ListingEntry>
 {
     let mut listing_entries = Vec::<ListingEntry>::new();
 
-    let mut buffer  = String::new();
-    for character in body.as_bytes().iter()
+    let mut buffer = String::new();
+    for character in body.chars()
     {
         match character
         {
-            b'>' =>
+            '>' =>
             {
                 if buffer.len() > 2 && &buffer[0..3] == "<a "
                 {
@@ -255,7 +255,7 @@ fn parse_body(body: &str) -> Vec<ListingEntry>
                 }
                 buffer.clear()
             }
-            _ => { buffer.push(*character as char) }
+            _ => { buffer.push(character) }
         }
     }
 
