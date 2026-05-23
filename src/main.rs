@@ -21,6 +21,7 @@ const BASE_URL_9: &str = "192.168.9.1";
 struct Router
 {
     base: String,
+    initial_path: String,
     path: String,
 }
 
@@ -31,8 +32,24 @@ impl Router
         Router
         {
             base: String::from(BASE_URL_9),
+            initial_path: String::from("anime"),
             path: String::from("anime"),
         }
+    }
+    fn route(&mut self, new_path: &str)
+    {
+        self.path = new_path.replace("/?raw=true", "")[1..].to_string();
+    }
+    fn route_replace_top(&mut self, new_path: &str)
+    {
+        let new_path = &new_path.replace("/?raw=true", "")[1..];
+        self.path = new_path.to_string();
+        self.initial_path = new_path.to_string();
+    }
+    fn up(&mut self)
+    {
+        let new_path = &self.path[0..self.path.rfind("/").unwrap_or(0)];
+        if self.path != self.initial_path { self.path = new_path.to_string(); }
     }
 }
 
@@ -93,37 +110,52 @@ fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
                                                     .find(|entry| entry.selected)
                                                     .unwrap();
 
-                launch_or_enter(&selected_entry, &router);
-                break;
+                if selected_entry.kind == "directory"
+                {
+                    router.route(&selected_entry.path);
+                    let body = http_get(&router);
+                    listing_entries = parse_body(&body);
+                }
+                else
+                {
+                    launch_or_enter(&selected_entry, &router);
+                    break;
+                }
             },
+            KeyCode::Backspace =>
+            {
+                router.up();
+                let body = http_get(&router);
+                listing_entries = parse_body(&body);
+            }
             KeyCode::Char('s') =>
             {
-                router.path = String::from("series");
+                router.route_replace_top("/series");
                 let body = http_get(&router);
                 listing_entries = parse_body(&body);
             }
             KeyCode::Char('m') =>
             {
-                router.path = String::from("movies");
+                router.route_replace_top("/movies");
                 let body = http_get(&router);
                 listing_entries = parse_body(&body);
             }
             KeyCode::Char('a') =>
             {
-                router.path = String::from("anime");
+                router.route_replace_top("/anime");
                 let body = http_get(&router);
                 listing_entries = parse_body(&body);
             }
             KeyCode::Char('1') =>
             {
-                router.path = String::from("");
+                router.route_replace_top("/");
                 router.base = String::from(BASE_URL_1);
                 let body = http_get(&router);
                 listing_entries = parse_body(&body);
             }
             KeyCode::Char('9') =>
             {
-                router.path = String::from("anime");
+                router.route_replace_top("/anime");
                 router.base = String::from(BASE_URL_9);
                 let body = http_get(&router);
                 listing_entries = parse_body(&body);
