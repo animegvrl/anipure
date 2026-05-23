@@ -5,5 +5,4 @@ version = "0.0.3"
 edition = "2024"
 
 [dependencies]
-quick-xml = "0.39.2"
 crossterm = "0.29.0"

@@ -2,9 +2,6 @@ use std::io;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 
-use quick_xml::events::Event;
-use quick_xml::reader::Reader;
-
 use crossterm::{
     execute,
     event::{ read, KeyCode },
@@ -228,63 +225,48 @@ fn stupid_url_fix(url: &String) -> String
        .to_string()
 }
 
-fn parse_body(xml: &str) -> Vec<ListingEntry>
+fn parse_body(body: &str) -> Vec<ListingEntry>
 {
-    let mut reader = Reader::from_str(xml);
-    reader.config_mut().trim_text(true);
-
-    let mut buf = Vec::new();
     let mut listing_entries = Vec::<ListingEntry>::new();
 
-    loop
+    let mut buffer  = String::new();
+    for character in body.as_bytes().iter()
     {
-        match reader.read_event_into(&mut buf)
+        match character
         {
-            Err(_) => return vec![ListingEntry
+            b'>' =>
             {
-                le_type: String::from("error"),
-                le_path: String::from("Nothing here."),
-                le_selected: true,
-            }],
-            // Err(e) => return Err(
-            //     format!("Error at position {}: {:?}", reader.error_position(), e)
-            // ),
-
-            Ok(Event::Eof) => break,
-            Ok(Event::Start(e)) =>
-            {
-                match e.name().as_ref()
+                if buffer.len() > 2 && &buffer[0..3] == "<a "
                 {
-                    b"a" =>
+                    let class = buffer.split("class=\"").nth(1).unwrap_or("")
+                                      .split("\"").nth(0);
+                    let href  = buffer.split("href=\"").nth(1).unwrap_or("")
+                                      .split("\"").nth(0);
+
+                    if class != None && href != None && class.unwrap() != "root"
                     {
-                        let kv_vector = e.html_attributes()
-                                         .map(|attr|
-                                               attr.unwrap()
-                                                   .value
-                                                   .into_owned()
-                                         )
-                                         .map(|attr|
-                                             String::from_utf8(
-                                                 attr
-                                             ).unwrap()
-                                         )
-                                         .collect::<Vec<_>>();
-
-                        if kv_vector[0] == "root" { continue; }
-
                         listing_entries.push(ListingEntry
                         {
-                            le_type: kv_vector[0].clone(),
-                            le_path: kv_vector[1].clone(),
+                            le_type: class.unwrap().to_string(),
+                            le_path: href.unwrap().to_string(),
                             le_selected: if listing_entries.len() == 0 { true } else { false },
                         });
                     }
-                    _ => (),
                 }
+                buffer.clear()
             }
-            _ => (),
+            _ => { buffer.push(*character as char) }
         }
-        buf.clear();
+    }
+
+    if listing_entries.len() == 0
+    {
+        listing_entries.push(ListingEntry
+        {
+            le_type: String::from("error"),
+            le_path: String::from("Nothing here."),
+            le_selected: true,
+        });
     }
 
     listing_entries
