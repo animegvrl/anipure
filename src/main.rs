@@ -9,22 +9,12 @@ use crossterm::{
     execute,
     event::{ read, KeyCode },
     terminal::{
-        disable_raw_mode,
-        enable_raw_mode,
-        EnterAlternateScreen,
-        LeaveAlternateScreen,
-        Clear,
-        ClearType,
+        enable_raw_mode, disable_raw_mode,
+        EnterAlternateScreen, LeaveAlternateScreen,
+        Clear, ClearType,
     },
-    cursor::{
-        MoveTo,
-        Hide,
-        Show,
-    },
-    style::{
-        SetBackgroundColor,
-        Color,
-    }
+    cursor::{ Show, Hide, MoveTo, },
+    style::{ Color, SetBackgroundColor, }
 };
 
 const BASE_URL_1: &str = "192.168.1.3";
@@ -35,6 +25,18 @@ struct Router
 {
     base: String,
     path: String,
+}
+
+impl Router
+{
+    fn new() -> Router
+    {
+        Router
+        {
+            base: String::from(BASE_URL_9),
+            path: String::from("anime"),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -69,11 +71,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
 
 fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
 {
-    let mut router = Router
-    {
-        base: String::from(BASE_URL_9),
-        path: String::from("anime"),
-    };
+    let mut router = Router::new();
 
     let body = http_get(&router);
     let mut listing_entries = parse_body(&body);
