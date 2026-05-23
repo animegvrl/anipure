@@ -1,4 +1,6 @@
 use std::io;
+use std::io::{Read, Write};
+use std::net::TcpStream;
 
 use quick_xml::events::Event;
 use quick_xml::reader::Reader;
@@ -25,27 +27,14 @@ use crossterm::{
     }
 };
 
-const BASE_URL_1: &str = "http://192.168.1.3";
-const BASE_URL_9: &str = "http://192.168.9.1";
+const BASE_URL_1: &str = "192.168.1.3";
+const BASE_URL_9: &str = "192.168.9.1";
 
 #[derive(Debug)]
 struct Router
 {
     base: String,
     path: String,
-}
-
-impl Router
-{
-    fn build_url(&self) -> String
-    {
-        format!(
-            "{}/{}{}?raw=true",
-            &self.base,
-            &self.path,
-            if &self.path == "" { "" } else { "/" },
-        )
-    }
 }
 
 #[derive(Debug)]
@@ -86,7 +75,7 @@ fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
         path: String::from("anime"),
     };
 
-    let body = reqwest::blocking::get(router.build_url())?.text()?;
+    let body = http_get(&router);
     let mut listing_entries = parse_body(&body);
 
     list_entries(&listing_entries);
@@ -115,33 +104,33 @@ fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
             KeyCode::Char('s') =>
             {
                 router.path = String::from("series");
-                let body = reqwest::blocking::get(router.build_url())?.text()?;
+                let body = http_get(&router);
                 listing_entries = parse_body(&body);
             }
             KeyCode::Char('m') =>
             {
                 router.path = String::from("movies");
-                let body = reqwest::blocking::get(router.build_url())?.text()?;
+                let body = http_get(&router);
                 listing_entries = parse_body(&body);
             }
             KeyCode::Char('a') =>
             {
                 router.path = String::from("anime");
-                let body = reqwest::blocking::get(router.build_url())?.text()?;
+                let body = http_get(&router);
                 listing_entries = parse_body(&body);
             }
             KeyCode::Char('1') =>
             {
                 router.path = String::from("");
                 router.base = String::from(BASE_URL_1);
-                let body = reqwest::blocking::get(router.build_url())?.text()?;
+                let body = http_get(&router);
                 listing_entries = parse_body(&body);
             }
             KeyCode::Char('9') =>
             {
                 router.path = String::from("anime");
                 router.base = String::from(BASE_URL_9);
-                let body = reqwest::blocking::get(router.build_url())?.text()?;
+                let body = http_get(&router);
                 listing_entries = parse_body(&body);
             }
             _ => {}
@@ -155,7 +144,7 @@ fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
 fn launch_or_enter(listing_entry: &ListingEntry, router: &Router)
 {
     let spawn_url = format!(
-        "{}{}",
+        "http://{}{}",
         &router.base,
         if listing_entry.le_type == "directory"
         {
@@ -301,4 +290,28 @@ fn parse_body(xml: &str) -> Vec<ListingEntry>
     }
 
     listing_entries
+}
+
+fn http_get(router: &Router) -> String
+{
+    let mut stream = match TcpStream::connect(format!("{}:80", &router.base))
+    {
+        Ok(tcp_stream) => { tcp_stream }
+        Err(_) => { return String::from("<whoopsies dayzeyehes<") }
+    };
+
+    let request = format!("GET /{}{} ",
+                                &router.path,
+                                  if &router.path == "" { "" } else { "/?raw=true" }
+                         )
+                + "HTTP/1.1\r\n"
+                + &format!("Host: {}\r\n", &router.base)
+                + "Connection: close\r\n"
+                + "User-Agent: anipure\r\n\r\n";
+
+    stream.write_all(request.as_bytes()).unwrap();
+
+    let mut response = String::new();
+    stream.read_to_string(&mut response).unwrap();
+    response
 }
