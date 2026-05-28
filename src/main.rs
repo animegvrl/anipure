@@ -101,9 +101,9 @@ fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
 
         match event.code
         {
-            KeyCode::Esc | KeyCode::Char('q') => { break; }
-            KeyCode::Up => { select_entry(false, &mut listing_entries); }
-            KeyCode::Down => { select_entry(true, &mut listing_entries); }
+            KeyCode::Esc | KeyCode::Char('q') => { break; },
+            KeyCode::Up => { select_entry(false, &mut listing_entries); },
+            KeyCode::Down => { select_entry(true, &mut listing_entries); },
             KeyCode::Enter =>
             {
                 let selected_entry = listing_entries.iter_mut()
@@ -127,40 +127,40 @@ fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
                 router.up();
                 let body = http_get(&router);
                 listing_entries = parse_body(&body);
-            }
+            },
             KeyCode::Char('s') =>
             {
                 router.route_replace_top("/series");
                 let body = http_get(&router);
                 listing_entries = parse_body(&body);
-            }
+            },
             KeyCode::Char('m') =>
             {
                 router.route_replace_top("/movies");
                 let body = http_get(&router);
                 listing_entries = parse_body(&body);
-            }
+            },
             KeyCode::Char('a') =>
             {
                 router.route_replace_top("/anime");
                 let body = http_get(&router);
                 listing_entries = parse_body(&body);
-            }
+            },
             KeyCode::Char('1') =>
             {
                 router.route_replace_top("/");
                 router.base = String::from(BASE_URL_1);
                 let body = http_get(&router);
                 listing_entries = parse_body(&body);
-            }
+            },
             KeyCode::Char('9') =>
             {
                 router.route_replace_top("/anime");
                 router.base = String::from(BASE_URL_9);
                 let body = http_get(&router);
                 listing_entries = parse_body(&body);
-            }
-            _ => {}
+            },
+            _ => (),
         }
 
         list_entries(&listing_entries);
