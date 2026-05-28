@@ -2,6 +2,8 @@ use std::io;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 
+use std::fs;
+
 use crossterm::{
     execute,
     event::{ read, KeyCode },
@@ -61,6 +63,20 @@ struct ListingEntry
     selected: bool,
 }
 
+fn build_m3u8(items: &Vec<ListingEntry>, router: &Router) -> String
+{
+    let mut m3u8 = String::from("#EXTM3U");
+    for (n, item) in items.iter().enumerate()
+    {
+        if !item.path.ends_with(".mkv") { continue; }
+
+        m3u8.push_str(&format!("\n#EXTINF:{}", n + 1));
+        m3u8.push_str(&format!("\nhttp://{}{}", &router.base, &item.path));
+    }
+
+    m3u8
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>>
 {
     enable_raw_mode()?;
@@ -118,7 +134,12 @@ fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
                 }
                 else
                 {
-                    launch_or_enter(&selected_entry, &router);
+                    let file_path = format!(
+                        "http://{}{}",
+                                &router.base,
+                                  selected_entry.path.to_string()
+                    );
+                    launch(&file_path);
                     break;
                 }
             },
@@ -127,6 +148,14 @@ fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
                 router.up();
                 let body = http_get(&router);
                 listing_entries = parse_body(&body);
+            },
+            KeyCode::Char('p') =>
+            {
+                let m3u8 = build_m3u8(&listing_entries, &router);
+                fs::create_dir("./anipure").ok();
+                fs::write("./anipure/play.m3u8", m3u8)?;
+                launch("./anipure/play.m3u8");
+                break;
             },
             KeyCode::Char('s') =>
             {
@@ -168,23 +197,10 @@ fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
-fn launch_or_enter(listing_entry: &ListingEntry, router: &Router)
+fn launch(path: &str)
 {
-    let spawn_url = format!(
-        "http://{}{}",
-        &router.base,
-        if listing_entry.kind == "directory"
-        {
-            listing_entry.path.replace("?raw=true", "play.m3u8")
-        }
-        else
-        {
-            listing_entry.path.to_string()
-        }
-    );
-
     std::process::Command::new("mpv")
-                          .arg(spawn_url)
+                          .arg(path)
                           .stderr(std::process::Stdio::null())
                           .stdout(std::process::Stdio::null())
                           .stdin(std::process::Stdio::null())
