@@ -185,7 +185,7 @@ fn list_entries(listing_entries: &Vec<ListingEntry>) {
                 "file" => "F ",
                 _ => "?",
             },
-            stupid_url_fix(&listing_entries[n].path)
+            parse_uri(&listing_entries[n].path)
         );
 
         execute!(
@@ -195,16 +195,44 @@ fn list_entries(listing_entries: &Vec<ListingEntry>) {
     }
 }
 
-fn stupid_url_fix(url: &String) -> String {
-    url.replace("%20", " ")
-       .replace("%5B", "[")
-       .replace("%5D", "]")
-       .replace("%2B", "+")
-       .replace("/?raw=true", "")
-       .split("/")
-       .last()
-       .unwrap()
-       .to_string()
+fn parse_uri(input: &str) -> String {
+    let mut decoded_uri_bytes = Vec::<u8>::new();
+
+    let byte_input = input.as_bytes();
+
+    let mut i = 0;
+    while i < byte_input.len() {
+        match byte_input[i] {
+            b'%' => {
+                if i + 3 > byte_input.len() {
+                    return input.to_string();
+                }
+
+                let uri_char = String::from_utf8_lossy(&byte_input[i+1..i+3]);
+                let Ok(char_value) = u8::from_str_radix(&uri_char, 16) else {
+                    return input.to_string();
+                };
+
+                decoded_uri_bytes.push(char_value);
+
+                i += 3;
+                continue;
+            }
+            other => decoded_uri_bytes.push(other),
+        }
+
+        i += 1;
+    }
+
+    let Ok(decoded_uri) = String::from_utf8(decoded_uri_bytes) else {
+        return input.to_string();
+    };
+
+    decoded_uri.replace("/?raw=true", "")
+               .split("/")
+               .last()
+               .unwrap()
+               .to_string()
 }
 
 fn parse_body(body: &str) -> Vec<ListingEntry> {
