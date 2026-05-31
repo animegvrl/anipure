@@ -185,7 +185,15 @@ fn list_entries(listing_entries: &Vec<ListingEntry>) {
                 "file" => "F ",
                 _ => "?",
             },
-            parse_uri(&listing_entries[n].path)
+            if let Some(parsed_uri) = parse_uri(&listing_entries[n].path) {
+                parsed_uri.replace("/?raw=true", "")
+                          .split("/")
+                          .last()
+                          .unwrap()
+                          .to_string()
+            } else {
+                "how did we get here?".to_string()
+            }
         );
 
         execute!(
@@ -195,44 +203,22 @@ fn list_entries(listing_entries: &Vec<ListingEntry>) {
     }
 }
 
-fn parse_uri(input: &str) -> String {
-    let mut decoded_uri_bytes = Vec::<u8>::new();
+fn parse_uri(input: &str) -> Option<String> {
+    let mut chars = input.chars();
+    let mut bytes = vec![];
 
-    let byte_input = input.as_bytes();
+    while let Some(c) = chars.next() {
+        if c == '%' {
+            let Some(a) = chars.next() else { return None; };
+            let Some(b) = chars.next() else { return None; };
 
-    let mut i = 0;
-    while i < byte_input.len() {
-        match byte_input[i] {
-            b'%' => {
-                if i + 3 > byte_input.len() {
-                    return input.to_string();
-                }
-
-                let uri_char = String::from_utf8_lossy(&byte_input[i+1..i+3]);
-                let Ok(char_value) = u8::from_str_radix(&uri_char, 16) else {
-                    return input.to_string();
-                };
-
-                decoded_uri_bytes.push(char_value);
-
-                i += 3;
-                continue;
-            }
-            other => decoded_uri_bytes.push(other),
+            bytes.push(u8::from_str_radix(&format!("{a}{b}"), 16).unwrap());
+        } else {
+            bytes.push(c as u8);
         }
-
-        i += 1;
     }
 
-    let Ok(decoded_uri) = String::from_utf8(decoded_uri_bytes) else {
-        return input.to_string();
-    };
-
-    decoded_uri.replace("/?raw=true", "")
-               .split("/")
-               .last()
-               .unwrap()
-               .to_string()
+    Some(String::from_utf8(bytes).unwrap())
 }
 
 fn parse_body(body: &str) -> Vec<ListingEntry> {
