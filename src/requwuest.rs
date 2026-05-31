@@ -10,7 +10,7 @@ pub fn http_get(router: &Router) -> String {
 
     let request = format!("GET /{}{} ",
                                 &router.path,
-                                  if &router.path == "" { "" } else { "/?raw=true" }
+                                  if &router.path == "" { "?raw=true" } else { "/?raw=true" }
                          )
                 + "HTTP/1.1\r\n"
                 + &format!("Host: {}\r\n", &router.base)
