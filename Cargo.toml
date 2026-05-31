@@ -1,7 +1,7 @@
 [package]
 name = "anipure"
 description = "Anime Player (reads miniserve, launches mpv)"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2024"
 
 [dependencies]
