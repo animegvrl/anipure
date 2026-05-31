@@ -1,8 +1,8 @@
-use std::io;
-use std::io::{Read, Write};
-use std::net::TcpStream;
+mod router;
+mod requwuest;
+use crate::router::{ Router, BASE_URL_1, BASE_URL_9 };
 
-use std::fs;
+use std::{ io, fs };
 
 use crossterm::{
     execute,
@@ -15,45 +15,6 @@ use crossterm::{
     cursor::{ Show, Hide, MoveTo, },
     style::{ Color, SetBackgroundColor, }
 };
-
-const BASE_URL_1: &str = "192.168.1.3";
-const BASE_URL_9: &str = "192.168.9.1";
-
-#[derive(Debug)]
-struct Router
-{
-    base: String,
-    initial_path: String,
-    path: String,
-}
-
-impl Router
-{
-    fn new() -> Router
-    {
-        Router
-        {
-            base: String::from(BASE_URL_9),
-            initial_path: String::from("anime"),
-            path: String::from("anime"),
-        }
-    }
-    fn route(&mut self, new_path: &str)
-    {
-        self.path = new_path.replace("/?raw=true", "")[1..].to_string();
-    }
-    fn route_replace_top(&mut self, new_path: &str)
-    {
-        let new_path = &new_path.replace("/?raw=true", "")[1..];
-        self.path = new_path.to_string();
-        self.initial_path = new_path.to_string();
-    }
-    fn up(&mut self)
-    {
-        let new_path = &self.path[0..self.path.rfind("/").unwrap_or(0)];
-        if self.path != self.initial_path { self.path = new_path.to_string(); }
-    }
-}
 
 #[derive(Debug)]
 struct ListingEntry
@@ -101,9 +62,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>>
 
 fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
 {
-    let mut router = Router::new();
+    let mut router = Router::default();
 
-    let body = http_get(&router);
+    let body = requwuest::http_get(&router);
     let mut listing_entries = parse_body(&body);
 
     list_entries(&listing_entries);
@@ -129,7 +90,7 @@ fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
                 if selected_entry.kind == "directory"
                 {
                     router.route(&selected_entry.path);
-                    let body = http_get(&router);
+                    let body = requwuest::http_get(&router);
                     listing_entries = parse_body(&body);
                 }
                 else
@@ -146,7 +107,7 @@ fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
             KeyCode::Backspace =>
             {
                 router.up();
-                let body = http_get(&router);
+                let body = requwuest::http_get(&router);
                 listing_entries = parse_body(&body);
             },
             KeyCode::Char('p') =>
@@ -160,33 +121,33 @@ fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
             KeyCode::Char('s') =>
             {
                 router.route_replace_top("/series");
-                let body = http_get(&router);
+                let body = requwuest::http_get(&router);
                 listing_entries = parse_body(&body);
             },
             KeyCode::Char('m') =>
             {
                 router.route_replace_top("/movies");
-                let body = http_get(&router);
+                let body = requwuest::http_get(&router);
                 listing_entries = parse_body(&body);
             },
             KeyCode::Char('a') =>
             {
                 router.route_replace_top("/anime");
-                let body = http_get(&router);
+                let body = requwuest::http_get(&router);
                 listing_entries = parse_body(&body);
             },
             KeyCode::Char('1') =>
             {
                 router.route_replace_top("/");
                 router.base = String::from(BASE_URL_1);
-                let body = http_get(&router);
+                let body = requwuest::http_get(&router);
                 listing_entries = parse_body(&body);
             },
             KeyCode::Char('9') =>
             {
                 router.route_replace_top("/anime");
                 router.base = String::from(BASE_URL_9);
-                let body = http_get(&router);
+                let body = requwuest::http_get(&router);
                 listing_entries = parse_body(&body);
             },
             _ => (),
@@ -318,28 +279,4 @@ fn parse_body(body: &str) -> Vec<ListingEntry>
     }
 
     listing_entries
-}
-
-fn http_get(router: &Router) -> String
-{
-    let mut stream = match TcpStream::connect(format!("{}:80", &router.base))
-    {
-        Ok(tcp_stream) => { tcp_stream }
-        Err(_) => { return String::from("<whoopsies dayzeyehes<") }
-    };
-
-    let request = format!("GET /{}{} ",
-                                &router.path,
-                                  if &router.path == "" { "" } else { "/?raw=true" }
-                         )
-                + "HTTP/1.1\r\n"
-                + &format!("Host: {}\r\n", &router.base)
-                + "Connection: close\r\n"
-                + "User-Agent: anipure\r\n\r\n";
-
-    stream.write_all(request.as_bytes()).unwrap();
-
-    let mut response = String::new();
-    stream.read_to_string(&mut response).unwrap();
-    response
 }
