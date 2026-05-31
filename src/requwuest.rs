@@ -3,10 +3,8 @@ use crate::router::Router;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 
-pub fn http_get(router: &Router) -> String
-{
-    let mut stream = match TcpStream::connect(format!("{}:80", &router.base))
-    {
+pub fn http_get(router: &Router) -> String {
+    let mut stream = match TcpStream::connect(format!("{}:80", &router.base)) {
         Ok(tcp_stream) => { tcp_stream }
         Err(_) => { return String::from("<whoopsies dayzeyehes<") }
     };

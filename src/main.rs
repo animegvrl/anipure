@@ -1,34 +1,31 @@
 mod router;
 mod requwuest;
-use crate::router::{ Router, BASE_URL_1, BASE_URL_9 };
+use crate::router::{Router, BASE_URL_1, BASE_URL_9};
 
-use std::{ io, fs };
+use std::{io, fs};
 
 use crossterm::{
     execute,
-    event::{ read, KeyCode },
+    event::{read, KeyCode},
     terminal::{
         enable_raw_mode, disable_raw_mode,
         EnterAlternateScreen, LeaveAlternateScreen,
         Clear, ClearType,
     },
-    cursor::{ Show, Hide, MoveTo, },
-    style::{ Color, SetBackgroundColor, }
+    cursor::{Show, Hide, MoveTo},
+    style::{Color, SetBackgroundColor}
 };
 
 #[derive(Debug)]
-struct ListingEntry
-{
+struct ListingEntry {
     kind: String,
     path: String,
     selected: bool,
 }
 
-fn build_m3u8(items: &Vec<ListingEntry>, router: &Router) -> String
-{
+fn build_m3u8(items: &Vec<ListingEntry>, router: &Router) -> String {
     let mut m3u8 = String::from("#EXTM3U");
-    for (n, item) in items.iter().enumerate()
-    {
+    for (n, item) in items.iter().enumerate() {
         if !item.path.ends_with(".mkv") { continue; }
 
         m3u8.push_str(&format!("\n#EXTINF:{}", n + 1));
@@ -38,30 +35,26 @@ fn build_m3u8(items: &Vec<ListingEntry>, router: &Router) -> String
     m3u8
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>>
-{
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     enable_raw_mode()?;
     execute!(io::stdout(), EnterAlternateScreen, Hide)?;
 
     let mut error = None;
-    if let Err(e) = handle_navigation()
-    {
+    if let Err(e) = handle_navigation() {
         error = Some(e);
     }
 
     execute!(io::stdout(), LeaveAlternateScreen, Show)?;
     disable_raw_mode()?;
 
-    if let Some(e) = error
-    {
+    if let Some(e) = error {
         println!("Error: {e:?}\r");
     }
 
     Ok(())
 }
 
-fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
-{
+fn handle_navigation() -> Result<(), Box<dyn std::error::Error>> {
     let mut router = Router::default();
 
     let body = requwuest::http_get(&router);
@@ -69,32 +62,25 @@ fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
 
     list_entries(&listing_entries);
 
-    while let Ok(event) = read()
-    {
-        let Some(event) = event.as_key_press_event() else
-        {
+    while let Ok(event) = read() {
+        let Some(event) = event.as_key_press_event() else {
             continue;
         };
 
-        match event.code
-        {
-            KeyCode::Esc | KeyCode::Char('q') => { break; },
-            KeyCode::Up => { select_entry(false, &mut listing_entries); },
-            KeyCode::Down => { select_entry(true, &mut listing_entries); },
-            KeyCode::Enter =>
-            {
+        match event.code {
+            KeyCode::Esc | KeyCode::Char('q') => { break; }
+            KeyCode::Up => { select_entry(false, &mut listing_entries); }
+            KeyCode::Down => { select_entry(true, &mut listing_entries); }
+            KeyCode::Enter => {
                 let selected_entry = listing_entries.iter_mut()
                                                     .find(|entry| entry.selected)
                                                     .unwrap();
 
-                if selected_entry.kind == "directory"
-                {
+                if selected_entry.kind == "directory" {
                     router.route(&selected_entry.path);
                     let body = requwuest::http_get(&router);
                     listing_entries = parse_body(&body);
-                }
-                else
-                {
+                } else {
                     let file_path = format!(
                         "http://{}{}",
                                 &router.base,
@@ -103,53 +89,46 @@ fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
                     launch(&file_path);
                     break;
                 }
-            },
-            KeyCode::Backspace =>
-            {
+            }
+            KeyCode::Backspace => {
                 router.up();
                 let body = requwuest::http_get(&router);
                 listing_entries = parse_body(&body);
-            },
-            KeyCode::Char('p') =>
-            {
+            }
+            KeyCode::Char('p') => {
                 let m3u8 = build_m3u8(&listing_entries, &router);
                 fs::create_dir("./anipure").ok();
                 fs::write("./anipure/play.m3u8", m3u8)?;
                 launch("./anipure/play.m3u8");
                 break;
-            },
-            KeyCode::Char('s') =>
-            {
+            }
+            KeyCode::Char('s') => {
                 router.route_replace_top("/series");
                 let body = requwuest::http_get(&router);
                 listing_entries = parse_body(&body);
-            },
-            KeyCode::Char('m') =>
-            {
+            }
+            KeyCode::Char('m') => {
                 router.route_replace_top("/movies");
                 let body = requwuest::http_get(&router);
                 listing_entries = parse_body(&body);
-            },
-            KeyCode::Char('a') =>
-            {
+            }
+            KeyCode::Char('a') => {
                 router.route_replace_top("/anime");
                 let body = requwuest::http_get(&router);
                 listing_entries = parse_body(&body);
-            },
-            KeyCode::Char('1') =>
-            {
+            }
+            KeyCode::Char('1') => {
                 router.route_replace_top("/");
                 router.base = String::from(BASE_URL_1);
                 let body = requwuest::http_get(&router);
                 listing_entries = parse_body(&body);
-            },
-            KeyCode::Char('9') =>
-            {
+            }
+            KeyCode::Char('9') => {
                 router.route_replace_top("/anime");
                 router.base = String::from(BASE_URL_9);
                 let body = requwuest::http_get(&router);
                 listing_entries = parse_body(&body);
-            },
+            }
             _ => (),
         }
 
@@ -158,8 +137,7 @@ fn handle_navigation() -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
-fn launch(path: &str)
-{
+fn launch(path: &str) {
     std::process::Command::new("mpv")
                           .arg(path)
                           .stderr(std::process::Stdio::null())
@@ -169,8 +147,7 @@ fn launch(path: &str)
                           .expect("mpv spawn failed");
 }
 
-fn select_entry(next: bool, listing_entries: &mut Vec<ListingEntry>)
-{
+fn select_entry(next: bool, listing_entries: &mut Vec<ListingEntry>) {
     let selected_idx = listing_entries.iter().position(|entry| entry.selected).unwrap();
     listing_entries[selected_idx].selected = false;
 
@@ -184,16 +161,14 @@ fn select_entry(next: bool, listing_entries: &mut Vec<ListingEntry>)
     ].selected = true;
 }
 
-fn list_entries(listing_entries: &Vec<ListingEntry>)
-{
+fn list_entries(listing_entries: &Vec<ListingEntry>) {
     execute!(
         io::stdout(),
         Clear(ClearType::All),
         MoveTo(0, 0)
     ).unwrap();
 
-    for n in 0..listing_entries.len()
-    {
+    for n in 0..listing_entries.len() {
         execute!(
             io::stdout(),
             MoveTo(0, n as u16),
@@ -208,9 +183,8 @@ fn list_entries(listing_entries: &Vec<ListingEntry>)
                 "directory" => "D ",
                 "root" => "..",
                 "file" => "F ",
-                _ => "?"
+                _ => "?",
             },
-            // listing_entries[n].path
             stupid_url_fix(&listing_entries[n].path)
         );
 
@@ -221,8 +195,7 @@ fn list_entries(listing_entries: &Vec<ListingEntry>)
     }
 }
 
-fn stupid_url_fix(url: &String) -> String
-{
+fn stupid_url_fix(url: &String) -> String {
     url.replace("%20", " ")
        .replace("%5B", "[")
        .replace("%5D", "]")
@@ -234,44 +207,35 @@ fn stupid_url_fix(url: &String) -> String
        .to_string()
 }
 
-fn parse_body(body: &str) -> Vec<ListingEntry>
-{
+fn parse_body(body: &str) -> Vec<ListingEntry> {
     let mut listing_entries = Vec::<ListingEntry>::new();
 
     let mut buffer = String::new();
-    for character in body.chars()
-    {
-        match character
-        {
-            '>' =>
-            {
-                if buffer.len() > 2 && &buffer[0..3] == "<a "
-                {
+    for character in body.chars() {
+        match character {
+            '>' => {
+                if buffer.len() > 2 && &buffer[0..3] == "<a " {
                     let class = buffer.split("class=\"").nth(1).unwrap_or("")
                                       .split("\"").nth(0);
                     let href  = buffer.split("href=\"").nth(1).unwrap_or("")
                                       .split("\"").nth(0);
 
-                    if class != None && href != None && class.unwrap() != "root"
-                    {
-                        listing_entries.push(ListingEntry
-                        {
+                    if class != None && href != None && class.unwrap() != "root" {
+                        listing_entries.push(ListingEntry {
                             kind: class.unwrap().to_string(),
                             path: href.unwrap().to_string(),
                             selected: if listing_entries.len() == 0 { true } else { false },
                         });
                     }
                 }
-                buffer.clear()
+                buffer.clear();
             }
-            _ => { buffer.push(character) }
+            _ => { buffer.push(character); }
         }
     }
 
-    if listing_entries.len() == 0
-    {
-        listing_entries.push(ListingEntry
-        {
+    if listing_entries.len() == 0 {
+        listing_entries.push(ListingEntry {
             kind: String::from("error"),
             path: String::from("Nothing here."),
             selected: true,
